@@ -3,4 +3,4 @@ select
     first_name,
     last_name,
     email
-from {{ source('raw_data', 'raw_users') }}
+from {{ ref('raw_users') }}

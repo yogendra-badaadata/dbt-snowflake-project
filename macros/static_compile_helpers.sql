@@ -37,3 +37,8 @@
     {%- endfor -%}
     md5({{ fields | join(" || '-' || ") }})
 {% endmacro %}
+
+
+{% macro quote_column(column_name) %}
+    "{{ column_name | upper }}"
+{% endmacro %}

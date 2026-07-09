@@ -20,3 +20,9 @@ models:
   minimal_snowflake_project:
     # Materialize all models in this project as tables by default
     +materialized: table
+
+seeds:
+  minimal_snowflake_project:
+    +quote_columns: false
+
+
