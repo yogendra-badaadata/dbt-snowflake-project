@@ -1,0 +1,15 @@
+# Virtual Environment
+dbt-env/
+venv/
+.venv/
+env/
+
+# dbt Artifacts & Logs
+target/
+dbt_packages/
+logs/
+
+# IDE files
+.idea/
+.vscode/
+.DS_Store

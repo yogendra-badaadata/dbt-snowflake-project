@@ -1,0 +1,22 @@
+name: 'minimal_snowflake_project'
+version: '1.0.0'
+config-version: 2
+
+# This points dbt to the snowflake_profile in profiles.yml
+profile: 'snowflake_profile'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  minimal_snowflake_project:
+    # Materialize all models in this project as tables by default
+    +materialized: table
