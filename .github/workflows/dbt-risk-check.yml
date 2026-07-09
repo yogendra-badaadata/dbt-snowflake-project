@@ -1,0 +1,35 @@
+name: Semantic SQL Risk Check
+
+on:
+  pull_request:
+    paths:
+      - 'models/**/*.sql'
+
+jobs:
+  semantic-risk:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dbt-snowflake
+        run: pip install dbt-snowflake --quiet
+
+      - name: Semantic SQL Risk Check
+        uses: badaadata/semantic-risk-engine-action@v1
+        with:
+          api_key:          ${{ secrets.SEMANTIC_RISK_API_KEY }}
+          dialect:          snowflake
+          dbt_profiles_dir: .
+          dbt_target:       dev
+          api_base_url:     https://api.badaadata.com
