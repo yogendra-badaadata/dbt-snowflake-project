@@ -1,6 +1,6 @@
 select
     id as payment_id,
-    IFF(payment_method = 'credit_card', amount, 0) as credit_amount,
-    IFNULL(amount, 0) as amount_safe,
-    NVL(payment_method, 'unknown') as method_safe
+    IFF(payment_method = 'bank_transfer', amount, 0) as credit_amount,
+    IFNULL(amount, -1) as amount_safe,
+    NVL(payment_method, 'NONE') as method_safe
 from {{ ref('raw_payments') }}
