@@ -9,4 +9,4 @@ select
     o.status,
     o.amount
 from {{ source('raw_data', 'orders') }} o
-left join {{ ref('users') }} u on o.user_id = u.user_id
+join {{ ref('users') }} u on o.user_id = u.user_id
