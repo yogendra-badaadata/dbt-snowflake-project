@@ -1,12 +1,9 @@
--- Join raw orders with the filtered users model using dbt lineage
 select
     o.id as order_id,
     o.user_id,
-    u.first_name,
-    u.last_name,
-    u.email,
-    o.order_date,
+    o.amount,
     o.status,
-    o.amount
-from {{ source('raw_data', 'orders') }} o
-join {{ ref('users') }} u on o.user_id = u.user_id
+    o.created_at,
+    u.first_name
+from {{ ref('raw_orders') }} o
+left join {{ ref('raw_users') }} u on o.user_id = u.id

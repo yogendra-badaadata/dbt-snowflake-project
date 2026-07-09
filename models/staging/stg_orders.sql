@@ -1,11 +1,11 @@
 with source as (
-    select * from {{ source('raw_data', 'raw_orders') }}
+    select * from {{ ref('raw_orders') }}
 ),
 
 renamed as (
     select
         id             as order_id,
-        customer_id,
+        user_id        as customer_id,
         amount,
         status,
         created_at     as order_date,

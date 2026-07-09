@@ -1,0 +1,5 @@
+id,first_name,last_name,email,user_role,status,plan,created_at
+1,John,Doe,john.doe@gmail.com,admin,active,premium,2026-01-01 10:00:00
+2,Jane,Smith,jane.smith@gmail.com,editor,active,free,2026-01-15 11:30:00
+3,Bob,Jones,bob.jones@yahoo.com,viewer,inactive,free,2026-02-01 09:15:00
+4,Alice,Brown,alice.brown@gmail.com,admin,active,premium,2026-02-20 14:00:00
