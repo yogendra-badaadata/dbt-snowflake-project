@@ -1,5 +1,9 @@
-{% set query_list = [] %}
+{% set structural_queries = [
+    "select 'raw_users' as source_table, 'id' as column_name, 'Null ID' as error_description, current_timestamp() as tuva_last_run from " ~ ref('raw_users') ~ " where id is null",
+    "select 'raw_orders' as source_table, 'id' as column_name, 'Null ID' as error_description, current_timestamp() as tuva_last_run from " ~ ref('raw_orders') ~ " where id is null"
+] %}
+
 select *
 from (
-    {{ query_list | join('\nunion all\n') }}
+    {{ structural_queries | join('\nunion all\n') }}
 ) as catalog_results
