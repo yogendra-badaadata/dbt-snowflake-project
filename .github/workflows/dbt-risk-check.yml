@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - 'models/**/*.sql'
-      
+
 jobs:
   semantic-risk:
     runs-on: ubuntu-latest
@@ -44,4 +44,4 @@ jobs:
           dialect:          snowflake
           dbt_profiles_dir: .
           dbt_target:       dev
-          api_base_url:     https://feedback.badaadata.com
+          api_base_url:     https://broadcast-chatty-moonrise.ngrok-free.dev
