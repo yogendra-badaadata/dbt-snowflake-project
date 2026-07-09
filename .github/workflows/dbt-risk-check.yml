@@ -41,4 +41,4 @@ jobs:
           dialect:          snowflake
           dbt_profiles_dir: .
           dbt_target:       dev
-          api_base_url:     https://api.badaadata.com
+          api_base_url:     https://feedback.badaadata.com
