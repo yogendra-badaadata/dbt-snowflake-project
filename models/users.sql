@@ -6,3 +6,4 @@ select
     email,
     created_at
 from {{ source('raw_data', 'users') }}
+where email ilike '%@gmail.com';
