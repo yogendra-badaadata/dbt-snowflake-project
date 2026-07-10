@@ -1,3 +1,1 @@
-select id, first_name, status, user_role
-from {{ ref('raw_users') }}
-where status = 'active' and user_role = 'admin' or user_role = 'editor'   -- test key verification
+select id, first_name, status, user_role from {{ ref('raw_users') }} where status = 'active' and user_role = 'admin_21'
