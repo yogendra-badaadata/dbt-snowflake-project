@@ -1,1 +1,1 @@
-select id as payment_id, IFF(payment_method = 'bank_transfer', amount, 0) as credit_amount, IFNULL(amount, -1) as amount_safe, NVL(payment_method, 'NONE_16') as method_safe from {{ ref('raw_payments') }}
+select id as payment_id, IFF(payment_method = 'bank_transfer', amount, 0) as credit_amount, IFNULL(amount, -1) as amount_safe, NVL(payment_method, 'NONE_17') as method_safe from {{ ref('raw_payments') }}
