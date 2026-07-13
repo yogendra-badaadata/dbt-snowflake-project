@@ -1,5 +1,5 @@
 select
     order_id,
     customer_id,
-    row_number() over (partition by customer_id order by order_date asc) as rn
+    row_number() over (partition by status order by order_date desc) as rn
 from {{ ref('stg_orders') }}
