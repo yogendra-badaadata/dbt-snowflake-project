@@ -5,7 +5,7 @@ WITH base_orders AS (
     FROM {{ ref('stg_orders') }}
 )
 SELECT
-    user_id,
-    SUM(amount) AS total_amount
-FROM base_orders
-GROUP BY user_id
+    b.user_id,
+    SUM(b.amount) AS total_amount
+FROM base_orders b                 -- Using table alias 'b'
+GROUP BY b.user_id                 -- Using qualifier 'b.' to trigger a0.user_id in SRE
