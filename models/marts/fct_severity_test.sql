@@ -232,8 +232,8 @@ customer_base_demographics AS (
     FROM prep_customers
     WHERE customer_id > 0
       AND EXISTS (
-          SELECT 1
-          FROM prep_orders o
+          SELECT 1 
+          FROM prep_orders o 
           WHERE o.customer_id = prep_customers.customer_id
       )
 ),
@@ -247,7 +247,7 @@ daily_transaction_grain AS (
         SUM(txn_amount) AS total_daily_amount,
         AVG(txn_amount) AS avg_daily_amount,
         MAX(txn_amount) AS max_daily_amount,
-
+        
         -- Periodical transition indicators for analytics
         ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY txn_date ASC) as customer_active_day_sequence,
         LAG(SUM(txn_amount), 1, 0.00) OVER (PARTITION BY user_id ORDER BY txn_date ASC) as prior_day_spend,
@@ -255,7 +255,7 @@ daily_transaction_grain AS (
         SUM(SUM(txn_amount)) OVER (PARTITION BY user_id ORDER BY txn_date ASC ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) as rolling_7day_spend
     FROM unified_ledger
     GROUP BY user_id, txn_date
-    HAVING COUNT(txn_id) >= 1
+    HAVING COUNT(txn_id) >= 1 
        AND SUM(txn_amount) <= 500000.00
 ),
 
@@ -317,11 +317,11 @@ order_financials AS (
         o.order_date,
         COUNT(DISTINCT f.product_id) AS product_count,
         SUM(f.quantity) AS total_items,
-        SUM(f.gross_item_revenue) AS gross_revenue,
+        SUM(f.gross_revenue) AS gross_revenue,
         SUM(f.item_tax) AS total_tax,
         SUM(f.total_item_cogs) AS total_cogs,
         AVG(f.shipping_fee) AS base_shipping_fee,
-        SUM(f.gross_item_revenue) - SUM(f.total_item_cogs) AS gross_margin
+        SUM(f.gross_revenue) - SUM(f.total_cogs) AS gross_margin
     FROM prep_orders o
     JOIN item_financials f ON o.order_id = f.order_id
     GROUP BY 1, 2, 3
@@ -404,17 +404,17 @@ customer_joined_mart AS (
         sl.actual_shipping_cost
     FROM filtered_window_metrics f
     -- 🚨 1. HIGH ALERT: Changed INNER JOIN to LEFT JOIN inside CTE
-    LEFT JOIN customer_base_demographics c
+    LEFT JOIN customer_base_demographics c 
         ON f.user_id = c.customer_id
-    LEFT JOIN regions_prep r
+    LEFT JOIN regions_prep r 
         ON c.country_code = r.alpha2_code
-    LEFT JOIN last_click_attribution lc
+    LEFT JOIN last_click_attribution lc 
         ON c.customer_id = lc.customer_id
-    LEFT JOIN support_ticket_aggregates sa
+    LEFT JOIN support_ticket_aggregates sa 
         ON c.customer_id = sa.customer_id
-    LEFT JOIN order_financials ofs
+    LEFT JOIN order_financials ofs 
         ON f.user_id = ofs.customer_id
-    LEFT JOIN shipping_logistics sl
+    LEFT JOIN shipping_logistics sl 
         ON ofs.order_id = sl.order_id
     LEFT JOIN prep_payments p
         ON c.customer_id = p.order_id
@@ -437,7 +437,7 @@ risk_and_fraud_scoring AS (
         total_tax,
         actual_shipping_cost,
         carrier,
-        CASE
+        CASE 
             WHEN total_daily_amount > 200.00 AND support_ticket_count >= 2 THEN 'HIGH_ALERT'
             WHEN total_daily_amount > 500.00 THEN 'REVIEW_NEEDED'
             ELSE 'NORMAL'
@@ -465,8 +465,8 @@ campaign_roas_performance AS (
         SUM(cjm.gross_revenue) AS attributed_revenue,
         SUM(cjm.gross_revenue) / NULLIF(AVG(a.ad_spend), 0) AS campaign_roas
     FROM campaign_ad_spend a
-    LEFT JOIN customer_joined_mart cjm
-        ON a.campaign_name = cjm.last_utm_campaign
+    LEFT JOIN customer_joined_mart cjm 
+        ON a.campaign_name = cjm.last_utm_campaign 
         AND a.channel_source = cjm.last_utm_source
     GROUP BY 1, 2
 ),
@@ -504,19 +504,19 @@ SELECT
     m.rolling_7day_spend as spend_7d,
     m.dynamic_risk_status as risk_status,
     m.risk_segment as risk_level,
-    nested_commutative_sum as comm_sum,
-    mixed_operators_sum as mix_sum,
-
+    SUM(m.daily_txn_count + (m.rolling_7day_spend + m.total_daily_amount)) AS comm_sum,
+    SUM(m.rolling_7day_spend * m.customer_active_day_sequence + m.daily_txn_count * m.total_daily_amount) AS mix_sum,
+    
     -- Swapped select positions of m.txn_date, m.user_id, m.total_daily_amount, m.daily_txn_count, m.country_code, m.rolling_7day_spend
     -- (Triggers 5 INFO position alerts)
-
+    
     -- 12. Non-commutative Subtraction
-    non_commutative_sub,
+    SUM(m.total_daily_amount - m.rolling_7day_spend) AS non_commutative_sub,
     -- 13. Complex Nested Math Equivalent
-    complex_math_sum,
+    SUM(ABS(m.rolling_7day_spend - m.total_daily_amount) * (m.customer_active_day_sequence + m.daily_txn_count)) AS complex_math_sum,
     -- 14. Deep Mixed Function Nesting
-    deep_mixed_sum,
-
+    SUM(ABS(m.rolling_7day_spend + m.total_daily_amount) + ROUND(m.daily_txn_count + m.customer_active_day_sequence, 2)) AS deep_mixed_sum,
+    
     -- Added 4 Window / Aggregation metrics (triggers 4 LOW alerts)
     sum(m.total_daily_amount) over (partition by m.user_id) as total_user_spend,
     count(m.user_id) over (partition by m.user_id) as user_txn_total,
