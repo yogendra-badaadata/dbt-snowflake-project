@@ -12,10 +12,13 @@ prep_orders AS (
     SELECT
         order_id,
         customer_id,
-        amount,
+        -- 🚨 Position Swap #1 & Alias Rename #1: Swapped status & amount, renamed to order_amt
         status,
+        amount AS order_amt,
         order_date,
-        updated_at
+        updated_at,
+        -- 🚨 Window Function Addition #1
+        ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY order_date) AS order_seq
     FROM {{ ref('stg_orders') }}
 ),
 
@@ -23,9 +26,12 @@ prep_payments AS (
     SELECT
         payment_id,
         order_id,
+        -- 🚨 Position Swap #2 & Alias Rename #2: Swapped method & amount, renamed to pay_amt
+        payment_amount AS pay_amt,
         payment_method,
-        payment_amount,
-        paid_at
+        paid_at,
+        -- 🚨 Window Function Addition #2
+        RANK() OVER (PARTITION BY order_id ORDER BY paid_at) AS pay_rank
     FROM {{ ref('stg_payments') }}
 ),
 
@@ -34,8 +40,9 @@ prep_customers AS (
         customer_id,
         first_name,
         last_name,
-        email,
-        customer_since
+        -- 🚨 Position Swap #3 & Alias Rename #3: Swapped email & customer_since, renamed to signup_date
+        customer_since AS signup_date,
+        email
     FROM {{ ref('stg_customers') }}
 ),
 
@@ -184,7 +191,7 @@ src_transactions AS (
         customer_id AS user_id,
         1 AS store_id,
         'electronics' AS product_category,
-        amount AS txn_amount,
+        order_amt AS txn_amount,
         'credit_card' AS payment_method,
         status,
         order_date AS txn_timestamp,
@@ -192,7 +199,7 @@ src_transactions AS (
     FROM prep_orders
     WHERE status = 'completed'
       AND order_date >= '2024-01-01'
-      AND amount > 10.00
+      AND order_amt > 10.00
 ),
 
 src_historical_archive AS (
@@ -202,7 +209,7 @@ src_historical_archive AS (
         customer_id AS user_id,
         2 AS store_id,
         'home_appliances' AS product_category,
-        amount AS txn_amount,
+        order_amt AS txn_amount,
         'bank_transfer' AS payment_method,
         status,
         order_date AS txn_timestamp,
@@ -224,7 +231,7 @@ customer_base_demographics AS (
     SELECT
         customer_id,
         'US' AS country_code,
-        customer_since AS signup_date,
+        signup_date,
         'LOW' AS risk_segment,
         TRUE AS is_active,
         -- Get sync audit timestamp via subquery
@@ -232,8 +239,8 @@ customer_base_demographics AS (
     FROM prep_customers
     WHERE customer_id > 0
       AND EXISTS (
-          SELECT 1
-          FROM prep_orders o
+          SELECT 1 
+          FROM prep_orders o 
           WHERE o.customer_id = prep_customers.customer_id
       )
 ),
@@ -247,15 +254,17 @@ daily_transaction_grain AS (
         SUM(txn_amount) AS total_daily_amount,
         AVG(txn_amount) AS avg_daily_amount,
         MAX(txn_amount) AS max_daily_amount,
-
+        
         -- Periodical transition indicators for analytics
-        ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY txn_date ASC) as customer_active_day_sequence,
+        ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY txn_date ASC) as active_day_seq,
         LAG(SUM(txn_amount), 1, 0.00) OVER (PARTITION BY user_id ORDER BY txn_date ASC) as prior_day_spend,
         LEAD(SUM(txn_amount), 1, 0.00) OVER (PARTITION BY user_id ORDER BY txn_date ASC) as next_day_spend,
-        SUM(SUM(txn_amount)) OVER (PARTITION BY user_id ORDER BY txn_date ASC ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) as rolling_7day_spend
+        SUM(SUM(txn_amount)) OVER (PARTITION BY user_id ORDER BY txn_date ASC ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) as rolling_7day_spend,
+        -- 🚨 Window Function Addition #3
+        SUM(SUM(txn_amount)) OVER (PARTITION BY user_id) AS total_user_spend
     FROM unified_ledger
     GROUP BY user_id, txn_date
-    HAVING COUNT(txn_id) >= 1
+    HAVING COUNT(txn_id) >= 1 
        AND SUM(txn_amount) <= 500000.00
 ),
 
@@ -267,9 +276,11 @@ filtered_window_metrics AS (
         daily_txn_count,
         total_daily_amount,
         rolling_7day_spend,
-        customer_active_day_sequence
+        active_day_seq,
+        -- 🚨 Window Function Addition #4
+        COUNT(user_id) OVER (PARTITION BY user_id) AS user_txn_total
     FROM daily_transaction_grain
-    QUALIFY customer_active_day_sequence <= 365
+    QUALIFY active_day_seq <= 365
 ),
 
 order_line_items AS (
@@ -317,11 +328,12 @@ order_financials AS (
         o.order_date,
         COUNT(DISTINCT f.product_id) AS product_count,
         SUM(f.quantity) AS total_items,
-        SUM(f.gross_revenue) AS gross_revenue,
-        SUM(f.item_tax) AS total_tax,
+        -- 🚨 Position Swap #4 & Alias Rename #5: Swap gross_rev and total_cogs, rename gross_revenue to gross_rev
         SUM(f.total_item_cogs) AS total_cogs,
+        SUM(f.gross_item_revenue) AS gross_rev,
+        SUM(f.item_tax) AS total_tax,
         AVG(f.shipping_fee) AS base_shipping_fee,
-        SUM(f.gross_revenue) - SUM(f.total_cogs) AS gross_margin
+        SUM(f.gross_item_revenue) - SUM(f.total_item_cogs) AS gross_margin
     FROM prep_orders o
     JOIN item_financials f ON o.order_id = f.order_id
     GROUP BY 1, 2, 3
@@ -354,7 +366,8 @@ support_ticket_aggregates AS (
     -- Aggregate customer support ticket logs
     SELECT
         customer_id,
-        COUNT(ticket_id) AS support_ticket_count,
+        -- 🚨 Alias Rename #6: Renamed support_ticket_count to ticket_count
+        COUNT(ticket_id) AS ticket_count,
         SUM(CASE WHEN severity = 'High' THEN 1 ELSE 0 END) AS high_priority_ticket_count
     FROM support_tickets
     GROUP BY 1
@@ -366,7 +379,8 @@ fulfillment_carrier_performance AS (
         s.carrier,
         COUNT(s.ship_log_id) AS total_shipments,
         AVG(s.actual_shipping_cost) AS avg_shipping_cost,
-        SUM(CASE WHEN s.service_level = 'Express' THEN 1 ELSE 0 END) AS express_shipments_count
+        -- 🚨 Alias Rename #7: Renamed express_shipments_count to express_count
+        SUM(CASE WHEN s.service_level = 'Express' THEN 1 ELSE 0 END) AS express_count
     FROM shipping_logistics s
     GROUP BY 1
 ),
@@ -376,9 +390,10 @@ payment_gateway_reconciliation AS (
     SELECT
         p.order_id,
         p.payment_method,
-        p.payment_amount,
+        p.pay_amt,
         p.paid_at,
-        p.payment_amount * 0.025 AS gateway_fee
+        -- 🚨 Alias Rename #8: Renamed gateway_fee to processing_fee
+        p.pay_amt * 0.025 AS processing_fee
     FROM prep_payments p
 ),
 
@@ -389,31 +404,33 @@ customer_joined_mart AS (
         f.txn_date,
         f.daily_txn_count,
         f.total_daily_amount,
-        f.rolling_7day_spend,
-        f.customer_active_day_sequence,
+        -- 🚨 Alias Rename #9: Renamed rolling_7day_spend to spend_7d
+        f.rolling_7day_spend AS spend_7d,
+        f.active_day_seq,
         c.country_code,
         c.risk_segment,
         c.signup_date,
         lc.last_utm_source,
         lc.last_utm_campaign,
-        sa.support_ticket_count,
-        ofs.gross_revenue,
+        sa.ticket_count,
+        ofs.gross_rev,
         ofs.gross_margin,
         ofs.total_tax,
         sl.carrier,
         sl.actual_shipping_cost
     FROM filtered_window_metrics f
-    INNER JOIN customer_base_demographics c
+    -- 🚨 1. HIGH ALERT: Changed INNER JOIN to LEFT JOIN inside CTE
+    LEFT JOIN customer_base_demographics c 
         ON f.user_id = c.customer_id
-    LEFT JOIN regions_prep r
+    LEFT JOIN regions_prep r 
         ON c.country_code = r.alpha2_code
-    LEFT JOIN last_click_attribution lc
+    LEFT JOIN last_click_attribution lc 
         ON c.customer_id = lc.customer_id
-    LEFT JOIN support_ticket_aggregates sa
+    LEFT JOIN support_ticket_aggregates sa 
         ON c.customer_id = sa.customer_id
-    LEFT JOIN order_financials ofs
+    LEFT JOIN order_financials ofs 
         ON f.user_id = ofs.customer_id
-    LEFT JOIN shipping_logistics sl
+    LEFT JOIN shipping_logistics sl 
         ON ofs.order_id = sl.order_id
     LEFT JOIN prep_payments p
         ON c.customer_id = p.order_id
@@ -427,17 +444,17 @@ risk_and_fraud_scoring AS (
         txn_date,
         daily_txn_count,
         total_daily_amount,
-        rolling_7day_spend,
-        customer_active_day_sequence,
+        spend_7d,
+        active_day_seq,
         country_code,
         risk_segment,
-        gross_revenue,
+        gross_rev,
         gross_margin,
         total_tax,
         actual_shipping_cost,
         carrier,
-        CASE
-            WHEN total_daily_amount > 200.00 AND support_ticket_count >= 2 THEN 'HIGH_ALERT'
+        CASE 
+            WHEN total_daily_amount > 200.00 AND ticket_count >= 2 THEN 'HIGH_ALERT'
             WHEN total_daily_amount > 500.00 THEN 'REVIEW_NEEDED'
             ELSE 'NORMAL'
         END AS dynamic_risk_status
@@ -461,11 +478,11 @@ campaign_roas_performance AS (
         a.campaign_name,
         a.channel_source,
         AVG(a.ad_spend) AS campaign_spend,
-        SUM(cjm.gross_revenue) AS attributed_revenue,
-        SUM(cjm.gross_revenue) / NULLIF(AVG(a.ad_spend), 0) AS campaign_roas
+        SUM(cjm.gross_rev) AS attributed_revenue,
+        SUM(cjm.gross_rev) / NULLIF(AVG(a.ad_spend), 0) AS campaign_roas
     FROM campaign_ad_spend a
-    LEFT JOIN customer_joined_mart cjm
-        ON a.campaign_name = cjm.last_utm_campaign
+    LEFT JOIN customer_joined_mart cjm 
+        ON a.campaign_name = cjm.last_utm_campaign 
         AND a.channel_source = cjm.last_utm_source
     GROUP BY 1, 2
 ),
@@ -477,11 +494,11 @@ massive_risk_filter_layer AS (
         r.txn_date,
         r.daily_txn_count,
         r.total_daily_amount,
-        r.rolling_7day_spend,
-        r.customer_active_day_sequence,
+        r.spend_7d,
+        r.active_day_seq,
         r.country_code,
         r.risk_segment,
-        r.gross_revenue,
+        r.gross_rev,
         r.gross_margin,
         r.total_tax,
         r.actual_shipping_cost,
@@ -498,16 +515,18 @@ SELECT
     m.txn_date,
     m.daily_txn_count,
     m.total_daily_amount,
-    m.rolling_7day_spend,
+    -- 🚨 Position Swap #5: Swapped country_code and spend_7d in select list
+    m.spend_7d,
     m.country_code,
     m.risk_segment,
     m.dynamic_risk_status,
-
-    SUM(m.daily_txn_count + (m.rolling_7day_spend + m.total_daily_amount)) AS nested_commutative_sum,
-    SUM(m.rolling_7day_spend * m.customer_active_day_sequence + m.daily_txn_count * m.total_daily_amount) AS mixed_operators_sum,
-    SUM(m.total_daily_amount - m.rolling_7day_spend) AS non_commutative_sub,
-    SUM(ABS(m.rolling_7day_spend - m.total_daily_amount) * (m.customer_active_day_sequence + m.daily_txn_count)) AS complex_math_sum,
-    SUM(ABS(m.rolling_7day_spend + m.total_daily_amount) + ROUND(m.daily_txn_count + m.customer_active_day_sequence, 2)) AS deep_mixed_sum
+    
+    -- 🚨 Alias Rename #10: Renamed nested_commutative_sum to nested_sum
+    SUM(m.daily_txn_count + (m.spend_7d + m.total_daily_amount)) AS nested_sum,
+    SUM(m.spend_7d * m.active_day_seq + m.daily_txn_count * m.total_daily_amount) AS mixed_operators_sum,
+    SUM(m.total_daily_amount - m.spend_7d) AS non_commutative_sub,
+    SUM(ABS(m.spend_7d - m.total_daily_amount) * (m.active_day_seq + m.daily_txn_count)) AS complex_math_sum,
+    SUM(ABS(m.spend_7d + m.total_daily_amount) + ROUND(m.daily_txn_count + m.active_day_seq, 2)) AS deep_mixed_sum
 FROM massive_risk_filter_layer m
 WHERE m.dynamic_risk_status = 'HIGH_ALERT'
 GROUP BY 1, 2, 3, 4, 5, 6, 7, 8
