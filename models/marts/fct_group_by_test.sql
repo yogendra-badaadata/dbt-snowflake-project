@@ -1,12 +1,13 @@
 WITH base_orders AS (
-    -- Renamed user_id to usr_id inside the CTE
-    SELECT 
-        user_id AS usr_id, 
-        amount 
+    -- Keep the name user_id here (don't alias it inside the CTE)
+    SELECT
+        user_id,
+        amount
     FROM {{ ref('stg_orders') }}
 )
 SELECT
-    usr_id,
+    -- Only alias it at the very end
+    user_id AS usr_id,
     SUM(amount) AS total_amount
 FROM base_orders
-GROUP BY usr_id
+GROUP BY user_id
