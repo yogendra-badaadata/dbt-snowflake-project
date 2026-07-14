@@ -1,4 +1,4 @@
 select
     order_id,
-    100 - amount as net_amount
+    amount - 100 as net_amount
 from {{ ref('stg_orders') }}
