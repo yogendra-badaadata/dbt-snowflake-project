@@ -403,7 +403,8 @@ customer_joined_mart AS (
         sl.carrier,
         sl.actual_shipping_cost
     FROM filtered_window_metrics f
-    INNER JOIN customer_base_demographics c
+    -- 🚨 1. HIGH ALERT: Base query uses LEFT JOIN
+    LEFT JOIN customer_base_demographics c
         ON f.user_id = c.customer_id
     LEFT JOIN regions_prep r
         ON c.country_code = r.alpha2_code
@@ -492,21 +493,24 @@ massive_risk_filter_layer AS (
       AND r.user_id IN (SELECT DISTINCT customer_id FROM customer_base_demographics WHERE is_active = TRUE)
 )
 
--- MAIN TARGET EXECUTION LAYER
+-- MAIN TARGET EXECUTION LAYER (Original Base Select List)
 SELECT
-    m.user_id,
     m.txn_date,
-    m.daily_txn_count,
+    m.user_id,
     m.total_daily_amount,
-    m.rolling_7day_spend,
+    m.daily_txn_count,
     m.country_code,
-    m.risk_segment,
+    m.rolling_7day_spend,
     m.dynamic_risk_status,
-
+    m.risk_segment,
     SUM(m.daily_txn_count + (m.rolling_7day_spend + m.total_daily_amount)) AS nested_commutative_sum,
     SUM(m.rolling_7day_spend * m.customer_active_day_sequence + m.daily_txn_count * m.total_daily_amount) AS mixed_operators_sum,
+
+    -- 12. Non-commutative Subtraction
     SUM(m.total_daily_amount - m.rolling_7day_spend) AS non_commutative_sub,
+    -- 13. Complex Nested Math Equivalent
     SUM(ABS(m.rolling_7day_spend - m.total_daily_amount) * (m.customer_active_day_sequence + m.daily_txn_count)) AS complex_math_sum,
+    -- 14. Deep Mixed Function Nesting
     SUM(ABS(m.rolling_7day_spend + m.total_daily_amount) + ROUND(m.daily_txn_count + m.customer_active_day_sequence, 2)) AS deep_mixed_sum
 FROM massive_risk_filter_layer m
 WHERE m.dynamic_risk_status = 'HIGH_ALERT'
