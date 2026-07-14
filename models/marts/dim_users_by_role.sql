@@ -5,7 +5,7 @@
      default=[]
 ) %}
 
-select id, first_name, email
+select id, first_name
 from {{ ref('raw_users') }}
 where user_role in (
     {% for role in role_values %}

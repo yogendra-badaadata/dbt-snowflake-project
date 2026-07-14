@@ -6,8 +6,8 @@ This is a minimal, production-style dbt project configured to connect to Snowfla
 
 ```text
 .
-├── dbt_project.yml   # Main dbt project configuration
-├── profiles.yml      # Connection profile using environment variables
+├── dbt_project.yml     # Main dbt project configuration
+├── profiles.yml        # Connection profile using environment variables
 ├── models/
 │   ├── sources/
 │   │   └── sources.yml # Declares Snowflake raw tables as dbt sources
