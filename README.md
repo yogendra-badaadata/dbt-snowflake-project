@@ -119,3 +119,13 @@ dbt run --profiles-dir .
 This will compile the SQL queries and build two tables in Snowflake:
 - `DBT_SEMANTIC_TEST.PUBLIC.USERS` (Filtered list of valid users)
 - `DBT_SEMANTIC_TEST.PUBLIC.ORDERS` (Completed orders joined with user attributes via the `ref()` function)
+
+---
+
+## CI/CD Semantic Risk Check
+
+This project has GitHub Actions integrated via the `Semantic Risk` workflow to scan pull requests for SQL differences.
+
+* **Triggering:** The check runs on pull requests. It automatically runs `git diff` to locate changed SQL models under `models/`.
+* **Execution:** If any SQL files changed, it runs a semantic difference compilation to check for risk anomalies (such as query performance or logic changes) and posts results directly to your PR comments.
+* **Skipping:** If only non-SQL files (like this `README.md`) are changed, the action detects it instantly and skips the check, completing successfully in 0 seconds.
