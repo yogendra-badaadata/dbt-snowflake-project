@@ -1,4 +1,4 @@
-# Minimal Snowflake dbt Project
+# Minimal Snowflake dbt Project (Workflow Test)
 
 This is a minimal, production-style dbt project configured to connect to Snowflake using environment variables. It defines two basic models: `users` and `orders`.
 
