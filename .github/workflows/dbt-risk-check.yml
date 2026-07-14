@@ -18,6 +18,9 @@ jobs:
 
       - run: pip install dbt-snowflake   # swap for your warehouse adapter
 
+      - name: Install dbt packages
+        run: dbt deps
+
       - uses: badaadata/semantic-risk-engine-action@v1
         continue-on-error: true   # shadow mode — an API hiccup must never fail your build
         with:
