@@ -1,7 +1,7 @@
 {% set role_values = dbt_utils.get_column_values(
      ref('raw_users'),
      'user_role',
-     order_by='user_role',
+     order_by='user_role desc',
      default=[]
 ) %}
 

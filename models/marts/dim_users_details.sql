@@ -1,6 +1,1 @@
-select
-    id as user_id,
-    first_name,
-    last_name,
-    email
-from {{ ref('raw_users') }}
+select id as user_id, first_name, email, '40' as run_id from {{ ref('raw_users') }}
