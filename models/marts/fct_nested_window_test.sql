@@ -1,3 +1,4 @@
+-- Test comment to trigger SRE workflow
 select
     order_id,
     (
