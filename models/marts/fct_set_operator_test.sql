@@ -1,3 +1,3 @@
 select customer_id from {{ ref('stg_orders') }}
-union
+INTERSECT
 select customer_id from {{ ref('stg_customers') }}

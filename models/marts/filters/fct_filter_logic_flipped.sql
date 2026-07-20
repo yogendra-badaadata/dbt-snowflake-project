@@ -3,4 +3,4 @@ select
     amount,
     status
 from {{ ref('stg_orders') }}
-where status = 'completed'
+where status != 'completed'

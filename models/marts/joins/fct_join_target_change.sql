@@ -9,4 +9,4 @@ select
     o.amount,
     t.first_name
 from {{ ref('stg_orders') }} o
-join target_b t on o.customer_id = t.customer_id
+join target_a t on o.customer_id = t.customer_id

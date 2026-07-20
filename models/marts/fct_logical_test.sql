@@ -10,4 +10,4 @@ with base as (
 )
 select *
 from base
-where amount > 100 and rn = 1 and (amount > 100 or status = 'completed')
+where amount > 200 and rn <= 1 and (amount > 50 or status = 'completed')

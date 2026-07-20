@@ -4,4 +4,4 @@ select
     u.first_name,
     o.amount
 from {{ ref('raw_orders') }} o
-left join {{ ref('raw_users') }} u on u.id = o.user_id
+left join {{ ref('raw_users') }} u on o.user_id = u.id

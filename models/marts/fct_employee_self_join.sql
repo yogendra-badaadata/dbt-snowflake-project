@@ -4,4 +4,4 @@ SELECT
     m.employee_name AS manager_name
 FROM employees e
 JOIN employees m
-    ON e.manager_id = m.employee_id
+    ON m.employee_id = e.manager_id;

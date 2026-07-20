@@ -1,10 +1,11 @@
 WITH base_orders AS (
-    SELECT 
-        user_id, 
-        amount 
+    -- Removed amount, added status
+    SELECT
+        user_id,
+        status
     FROM {{ ref('stg_orders') }}
 )
 SELECT
     user_id,
-    amount
+    status
 FROM base_orders

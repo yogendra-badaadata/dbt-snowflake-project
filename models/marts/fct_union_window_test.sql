@@ -1,6 +1,6 @@
 select
     order_id,
-    row_number() over (order by order_date asc) as rn
+    row_number() over (order by order_date desc) as rn
 from {{ ref('stg_orders') }}
 union all
 select

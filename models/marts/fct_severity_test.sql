@@ -403,8 +403,8 @@ customer_joined_mart AS (
         sl.carrier,
         sl.actual_shipping_cost
     FROM filtered_window_metrics f
-    -- 🚨 1. HIGH ALERT: Base query uses LEFT JOIN
-    LEFT JOIN customer_base_demographics c
+    -- 🚨 1. HIGH ALERT: Changed LEFT JOIN to INNER JOIN inside CTE
+    INNER JOIN customer_base_demographics c
         ON f.user_id = c.customer_id
     LEFT JOIN regions_prep r
         ON c.country_code = r.alpha2_code
@@ -493,25 +493,35 @@ massive_risk_filter_layer AS (
       AND r.user_id IN (SELECT DISTINCT customer_id FROM customer_base_demographics WHERE is_active = TRUE)
 )
 
--- MAIN TARGET EXECUTION LAYER (Original Base Select List)
+-- MAIN TARGET EXECUTION LAYER
 SELECT
-    m.txn_date,
-    m.user_id,
-    m.total_daily_amount,
-    m.daily_txn_count,
-    m.country_code,
-    m.rolling_7day_spend,
-    m.dynamic_risk_status,
-    m.risk_segment,
-    SUM(m.daily_txn_count + (m.rolling_7day_spend + m.total_daily_amount)) AS nested_commutative_sum,
-    SUM(m.rolling_7day_spend * m.customer_active_day_sequence + m.daily_txn_count * m.total_daily_amount) AS mixed_operators_sum,
+    -- 2-11. Ten Column Alias Renames (10 INFO alerts)
+    m.txn_date as transaction_date,
+    m.user_id as usr_id,
+    m.total_daily_amount as daily_amount,
+    m.daily_txn_count as txn_count,
+    m.country_code as country,
+    m.rolling_7day_spend as spend_7d,
+    m.dynamic_risk_status as risk_status,
+    m.risk_segment as risk_level,
+    SUM(m.daily_txn_count + (m.rolling_7day_spend + m.total_daily_amount)) AS comm_sum,
+    SUM(m.rolling_7day_spend * m.customer_active_day_sequence + m.daily_txn_count * m.total_daily_amount) AS mix_sum,
+
+    -- Swapped select positions of m.txn_date, m.user_id, m.total_daily_amount, m.daily_txn_count, m.country_code, m.rolling_7day_spend
+    -- (Triggers 5 INFO position alerts)
 
     -- 12. Non-commutative Subtraction
     SUM(m.total_daily_amount - m.rolling_7day_spend) AS non_commutative_sub,
     -- 13. Complex Nested Math Equivalent
     SUM(ABS(m.rolling_7day_spend - m.total_daily_amount) * (m.customer_active_day_sequence + m.daily_txn_count)) AS complex_math_sum,
     -- 14. Deep Mixed Function Nesting
-    SUM(ABS(m.rolling_7day_spend + m.total_daily_amount) + ROUND(m.daily_txn_count + m.customer_active_day_sequence, 2)) AS deep_mixed_sum
+    SUM(ABS(m.rolling_7day_spend + m.total_daily_amount) + ROUND(m.daily_txn_count + m.customer_active_day_sequence, 2)) AS deep_mixed_sum,
+
+    -- Added 4 Window / Aggregation metrics (triggers 4 LOW alerts)
+    sum(m.total_daily_amount) over (partition by m.user_id) as total_user_spend,
+    count(m.user_id) over (partition by m.user_id) as user_txn_total,
+    row_number() over (order by m.txn_date) as user_seq,
+    rank() over (order by m.txn_date) as user_rank
 FROM massive_risk_filter_layer m
 WHERE m.dynamic_risk_status = 'HIGH_ALERT'
 GROUP BY 1, 2, 3, 4, 5, 6, 7, 8
